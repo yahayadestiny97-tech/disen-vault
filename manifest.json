@@ -1,0 +1,15 @@
+{
+  "name": "Disen Vault",
+  "short_name": "Disen Vault",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFF5F7",
+  "theme_color": "#E85D8A",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/512x512/E85D8A/FFFFFF?text=DV",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
