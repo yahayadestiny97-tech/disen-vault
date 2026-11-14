@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Disen Vault - Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    *{box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif}
+    body{background:linear-gradient(160deg,#0a0f2e,#1a1440);color:#e8e8e8;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:20px}
+    .card{background:#141a3d;border:2px solid #ffcc00;border-radius:20px;padding:28px;width:100%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,.5);text-align:center}
+    h1{margin:0;letter-spacing:2px;background:linear-gradient(90deg,#fff,#ffcc00);-webkit-background-clip:text;-webkit-text-fill-color:transparent} p{color:#aab2d5;font-size:13px}
+    input{width:100%;background:#0a0f2e;border:1px solid #3a4490;border-radius:12px;color:white;padding:13px 14px;margin:8px 0;outline:none}
+    input:focus{border-color:#ffcc00}
+    button{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;cursor:pointer;margin-top:8px}
+    .btn-main{background:linear-gradient(90deg,#ffcc00,#ff9900);color:#111} .btn-ghost{background:#262b60;color:white;border:1px solid #4a55a0}
+    .link{color:#ffcc00;cursor:pointer;font-size:13px} #msg{color:#ff8080;font-size:12px;min-height:16px}
+    .tabs{display:flex;gap:10px;margin:16px 0} .tabs button{flex:1}
+    .active{background:#ffcc00!important;color:#111!important}
+    .pass-wrap{position:relative;display:flex;align-items:center}
+    .pass-wrap input{padding-right:48px}
+    .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#262b60;color:white;border:1px solid #4a55a0;border-radius:8px;width:36px;height:36px;padding:0;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+    .big-icon{font-size:48px;margin:8px 0}
+    .check-box{background:#1e2a1e;border:1px solid #2f4a2f;border-radius:12px;padding:16px;margin:16px 0;text-align:left;font-size:13px;color:#c8e6c9;line-height:1.6}
+    .spinner{width:32px;height:32px;border:3px solid #333;border-top:3px solid #ffcc00;border-radius:50%;margin:12px auto;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="card" id="authCard">
+    <div style="font-size:42px;"></div>
+    <h1>DISEN VAULT</h1>
+    <p>Your secrets follow you. Any phone. Anywhere.<br>Encrypted. Private. Yours.<br>Creator: Indisen  From: Destiny</p>
+    <div class="tabs">
+      <button id="tabLogin" class="btn-ghost active" onclick="switchTab('login')">LOGIN</button>
+      <button id="tabSignup" class="btn-ghost" onclick="switchTab('signup')">SIGN UP</button>
+    </div>
+    <input id="email" type="email" placeholder="Email - e.g. you@gmail.com">
+    <div class="pass-wrap">
+      <input id="password" type="password" placeholder="Login Password (min 6 chars)">
+      <button type="button" class="eye" onclick="toggleEye('password', this)"></button>
+    </div>
+    <div class="pass-wrap">
+      <input id="master" type="password" placeholder="Master Password - for your vault">
+      <button type="button" class="eye" onclick="toggleEye('master', this)"></button>
+    </div>
+    <button id="mainBtn" class="btn-main" onclick="handleAuth()">LOGIN & OPEN MY VAULT</button>
+    <button class="btn-ghost" onclick="resetPass()">Forgot Password? Reset via Email</button>
+    <button class="btn-ghost" onclick="resendVerification()" style="font-size:12px; padding:10px;">Didn't get confirmation email? Resend it</button>
+    <p id="msg"></p>
+    <p style="font-size:11px;color:#8a92c5;">We never see your Master Password.<br>If you forget it, your vault CANNOT be recovered.</p>
+  </div>
+
+  <div class="card" id="verifyCard" style="display:none;">
+    <div class="big-icon"></div>
+    <h1>CHECK YOUR EMAIL</h1>
+    <p style="font-size:14px;color:white;">Verification email has been sent to</p>
+    <p id="verifyEmailText" style="font-size:15px;color:#ffcc00;font-weight:700;word-break:break-all;">you@gmail.com</p>
+    <div class="check-box">
+       Check your <b>Inbox</b><br>
+       Check your <b>Spam / Junk</b><br>
+       Check <b>Promotions</b> tab in Gmail<br>
+       Click the link inside the email<br>
+       This page will <b>auto-open your vault</b> when you verify - keep it open!
+    </div>
+    <div class="spinner"></div>
+    <p id="verifyStatus" style="font-size:13px;color:#ffcc00;"> Waiting for you to click the link in Gmail...<br>Checking every 5 seconds...</p>
+    <p id="verifyCountdown" style="font-size:11px;color:#aab2d5;">Checked 0 times</p>
+    <button class="btn-main" onclick="checkNow()">CHECK NOW - DID I VERIFY?</button>
+    <button class="btn-ghost" onclick="resendVerificationFromPage()">RESEND EMAIL</button>
+    <button class="btn-ghost" onclick="backToLogin()">I VERIFIED - GO TO LOGIN</button>
+    <button class="btn-ghost" onclick="backToLogin()" style="font-size:12px;">Use a different email</button>
+    <p id="verifyMsg" style="font-size:12px;min-height:16px;color:#7ee787;"></p>
+    <p style="font-size:11px;color:#8a92c5;">Link expires in 1 hour.<br>If it expires, click Resend.</p>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, setPersistence, browserLocalPersistence, signOut, applyActionCode, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBz9raLu_1D-YrAWUxTLS1OQ8ou2_fHpRw",
+    authDomain: "disen-vault.firebaseapp.com",
+    projectId: "disen-vault",
+    storageBucket: "disen-vault.firebasestorage.app",
+    messagingSenderId: "166936277929",
+    appId: "1:166936277929:web:e5b49294be1790399dcab8",
+    measurementId: "G-CNNFCJ4CZW"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  try { await setPersistence(auth, browserLocalPersistence); } catch(e){ console.log(e); }
+
+  let mode = 'login';
+  let pendingEmail = "";
+  let pendingPass = "";
+  let pendingMaster = "";
+  let checkTimer = null;
+  let checkCount = 0;
+
+  window.switchTab = (m) => {
+    mode = m;
+    document.getElementById('tabLogin').classList.toggle('active', m==='login');
+    document.getElementById('tabSignup').classList.toggle('active', m==='signup');
+    document.getElementById('mainBtn').innerText = m==='login' ? 'LOGIN & OPEN MY VAULT' : 'CREATE ACCOUNT & OPEN MY VAULT';
+  }
+  window.toggleEye = (inputId, btn) => {
+    let inp = document.getElementById(inputId);
+    if(inp.type === "password"){ inp.type = "text"; btn.innerText = ""; }
+    else { inp.type = "password"; btn.innerText = ""; }
+  }
+  function showVerifyPage(email){
+    document.getElementById("authCard").style.display = "none";
+    document.getElementById("verifyCard").style.display = "block";
+    document.getElementById("verifyEmailText").innerText = email;
+    startAutoCheck();
+  }
+  window.backToLogin = () => {
+    stopAutoCheck();
+    document.getElementById("verifyCard").style.display = "none";
+    document.getElementById("authCard").style.display = "block";
+    switchTab('login');
+    document.getElementById("msg").style.color = "#7ee787";
+    document.getElementById("msg").innerText = "Now Login with your verified email.";
+  }
+  function stopAutoCheck(){ if(checkTimer) clearInterval(checkTimer); checkTimer=null; }
+  function startAutoCheck(){
+    stopAutoCheck(); checkCount=0;
+    // Check every 5 seconds if user clicked Gmail link
+    checkTimer = setInterval(checkNow, 5000);
+  }
+  // ===== FIX 1: AUTO-CHECK VERIFICATION =====
+  window.checkNow = async () => {
+    checkCount++;
+    let st = document.getElementById("verifyStatus");
+    let cd = document.getElementById("verifyCountdown");
+    if(cd) cd.innerText = "Checked "+checkCount+" times  Last check: "+new Date().toLocaleTimeString();
+    if(!pendingEmail || !pendingPass){
+      if(st) st.innerText = "Enter email + password on login page first, then Resend.";
+      return;
+    }
+    try{
+      // Sign in silently to reload verification status
+      let cred;
+      try{ cred = await signInWithEmailAndPassword(auth, pendingEmail, pendingPass); }
+      catch(e){ if(st) st.innerText = "Waiting... ("+e.message+")"; return; }
+      await cred.user.reload();
+      if(cred.user.emailVerified){
+        stopAutoCheck();
+        if(st) st.innerText = " VERIFIED! Opening your vault...";
+        document.getElementById("verifyMsg").innerText = " Verified! Opening vault in 1 sec...";
+        // Save + RESET CALCULATOR so Vault shows Calculator first
+        localStorage.setItem("disenUser", JSON.stringify({ uid: cred.user.uid, email: pendingEmail }));
+        localStorage.setItem("disenMaster", pendingMaster);
+        sessionStorage.setItem("disenCalcPassed","0");
+        sessionStorage.setItem("disenCalcInit","1");
+        await signOut(auth);
+        // Need to sign back in for vault sync - vault will handle auth via localStorage, but keep Firebase session by NOT signing out? 
+        // Re-sign in quickly then go to vault
+        try{ await signInWithEmailAndPassword(auth, pendingEmail, pendingPass); }catch(e){}
+        setTimeout(()=>{ window.location.href = "vault.html"; }, 1000);
+      } else {
+        if(st) st.innerText = " Not verified yet... Click the link in Gmail (check Spam too). Checking again in 5 secs...";
+      }
+    }catch(e){ console.log("CHECK ERROR", e); }
+  }
+
+  window.handleAuth = async () => {
+    let email = document.getElementById('email').value.trim();
+    let pass = document.getElementById('password').value;
+    let master = document.getElementById('master').value;
+    let msg = document.getElementById('msg');
+    if(!email || !pass || !master){ msg.innerText="Fill all 3 fields"; return; }
+    if(pass.length < 6){ msg.innerText="Login password must be 6+ chars"; return; }
+    msg.style.color="#7ee787";
+    msg.innerText = "Please wait...";
+    try{
+      let cred;
+      if(mode==='signup'){
+        cred = await createUserWithEmailAndPassword(auth, email, pass);
+        try{
+          await sendEmailVerification(cred.user, { url: location.origin + "/index.html?verified=1", handleCodeInApp: false });
+          console.log("Verification sent to", email);
+          pendingEmail = email; pendingPass = pass; pendingMaster = master;
+          localStorage.setItem("disenMaster", master);
+          // DO NOT sign out fully - keep user so auto-check can reload. Just show page.
+          showVerifyPage(email);
+          return;
+        }catch(e){
+          console.log("Verification FAILED:", e.code, e.message);
+          msg.style.color="#ff8080";
+          if(e.code==="auth/too-many-requests") msg.innerText = "Too many emails sent. Wait 5 mins. Your account is created, try Resend later.";
+          else msg.innerText = "Account created but email failed: " + e.message + " - Click Resend below.";
+          return;
+        }
+      } else {
+        cred = await signInWithEmailAndPassword(auth, email, pass);
+        if(!cred.user.emailVerified){
+          // Don't block - show verify page and auto-check
+          msg.style.color="#ffcc00";
+          msg.innerText = "Email not verified yet. Opening verification check...";
+          pendingEmail=email; pendingPass=pass; pendingMaster=master;
+          localStorage.setItem("disenMaster", master);
+          showVerifyPage(email);
+          return;
+        }
+      }
+      localStorage.setItem("disenUser", JSON.stringify({ uid: cred.user.uid, email: email }));
+      localStorage.setItem("disenMaster", master);
+      // ===== FIX 2: RESET CALCULATOR BEFORE GOING TO VAULT =====
+      sessionStorage.setItem("disenCalcPassed","0");
+      sessionStorage.setItem("disenCalcInit","1");
+      await new Promise(r => setTimeout(r, 500));
+      window.location.href = "vault.html";
+    }catch(e){
+      msg.style.color="#ff8080";
+      if(e.code==="auth/email-already-in-use") msg.innerText = "This email already has an account! Click LOGIN, not SIGN UP. Or click Forgot Password.";
+      else if(e.code==="auth/invalid-email") msg.innerText = "That email looks wrong.";
+      else if(e.code==="auth/weak-password") msg.innerText = "Password too weak. Use 6+ chars.";
+      else msg.innerText = e.message.replace("Firebase: ","");
+      console.log("AUTH ERROR:", e.code, e.message);
+    }
+  }
+
+  window.resetPass = async () => {
+    let email = document.getElementById('email').value.trim();
+    let msg = document.getElementById('msg');
+    if(!email){ msg.innerText = "Enter your email first"; return; }
+    msg.style.color="#7ee787"; msg.innerText = "Sending reset email...";
+    try{
+      await sendPasswordResetEmail(auth, email, { url: location.origin + "/index.html?reset=1", handleCodeInApp: false });
+      msg.style.color="#7ee787"; msg.innerText="Reset link sent to " + email + "! Check Inbox AND Spam.";
+    }catch(e){
+      msg.style.color="#ff8080";
+      if(e.code === "auth/user-not-found") msg.innerText = "No account with that email. Try Sign Up first.";
+      else if(e.code === "auth/too-many-requests") msg.innerText = "Too many tries. Wait 5 mins.";
+      else msg.innerText = e.message.replace("Firebase: ","");
+    }
+  }
+
+  window.resendVerification = async () => {
+    let email = document.getElementById('email').value.trim();
+    let pass = document.getElementById('password').value;
+    let master = document.getElementById('master').value;
+    let msg = document.getElementById('msg');
+    if(!email || !pass){ msg.innerText = "Enter email + login password, then click Resend"; return; }
+    msg.style.color="#7ee787"; msg.innerText = "Resending...";
+    try{
+      let cred = await signInWithEmailAndPassword(auth, email, pass);
+      if(cred.user.emailVerified){ msg.innerText = "Your email is already verified! Just Login."; return; }
+      await sendEmailVerification(cred.user, { url: location.origin + "/index.html?verified=1", handleCodeInApp: false });
+      msg.innerText = "Confirmation email resent to " + email + "! Check Spam.";
+      pendingEmail = email; pendingPass = pass; pendingMaster = master;
+      showVerifyPage(email);
+    }catch(e){ msg.style.color="#ff8080"; msg.innerText = e.message.replace("Firebase: ",""); }
+  }
+
+  window.resendVerificationFromPage = async () => {
+    let vmsg = document.getElementById("verifyMsg");
+    vmsg.innerText = "Resending...";
+    try{
+      let cred = await signInWithEmailAndPassword(auth, pendingEmail, pendingPass);
+      await sendEmailVerification(cred.user, { url: location.origin + "/index.html?verified=1", handleCodeInApp: false });
+      vmsg.innerText = " Resent to " + pendingEmail + "! Check Spam.";
+    }catch(e){ vmsg.style.color="#ff8080"; vmsg.innerText = e.message.replace("Firebase: ",""); }
+  }
+
+  // ===== FIX 3: HANDLE GMAIL LINK CORRECTLY =====
+  // Gmail link comes back as ?mode=verifyEmail&oobCode=XXX&... - we must apply it
+  async function handleIncomingLink(){
+    let params = new URLSearchParams(location.search);
+    let modeParam = params.get("mode");
+    let oobCode = params.get("oobCode");
+    if(modeParam==="verifyEmail" && oobCode){
+      try{
+        await applyActionCode(auth, oobCode);
+        document.getElementById("msg").style.color="#7ee787";
+        document.getElementById("msg").innerText=" Email verified from Gmail link! Now Login.";
+        // Clean URL
+        history.replaceState({}, "", location.pathname);
+      }catch(e){
+        document.getElementById("msg").style.color="#ff8080";
+        document.getElementById("msg").innerText="Link expired or already used. Login and click Resend.";
+      }
+      return;
+    }
+    if(location.search.includes("verified=1")){
+      document.getElementById("msg").style.color="#7ee787";
+      document.getElementById("msg").innerText=" Email verified! Now Login.";
+    }
+    // If user is already verified and on verify page, auto-check
+    if(auth.currentUser){
+      try{ await auth.currentUser.reload(); if(auth.currentUser.emailVerified){ document.getElementById("msg").innerText=" Already verified! Login now."; } }catch(e){}
+    }
+  }
+  handleIncomingLink();
+</script>
+</body>
+</html>
